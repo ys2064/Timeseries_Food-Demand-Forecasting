@@ -20,6 +20,11 @@ print(f'Validation set shape: {val_set.shape}')
 print(f'Test set shape: {test_set.shape}')
 
 
+
+
+
+## Training the TCN Model##
+
 !pip install tensorflow
 import pandas as pd
 import numpy as np
@@ -30,8 +35,8 @@ import tensorflow as tf
 from tensorflow.keras import layers
 from sklearn.preprocessing import MinMaxScaler
 import matplotlib.pyplot as plt
-train_set = pd.read_csv('/content/drive/My Drive/TCN/new_train.csv')
-val_set = pd.read_csv('/content/drive/My Drive/TCN/new_val.csv')
+train_set = pd.read_csv('/content/drive/My Drive/TCN/train_set.csv')
+val_set = pd.read_csv('/content/drive/My Drive/TCN/val_set.csv')
 
 features = [
     'week', 
@@ -91,3 +96,44 @@ X_train, y_train = create_sequences(train_set, target, seq_length)
 X_val, y_val = create_sequences(val_set, target, seq_length)
 print(f'X_train shape: {X_train.shape}, y_train shape: {y_train.shape}')
 print(f'X_val shape: {X_val.shape}, y_val shape: {y_val.shape}')
+
+
+def create_tcn_model(input_shape, filters1, filters2, kernel_size=3, dilation_rate=2):
+    with tf.device('/GPU:0'):
+        inputs = layers.Input(shape=input_shape)
+        x = layers.Conv1D(filters=filters1, kernel_size=kernel_size, activation='relu', padding='causal', dilation_rate=dilation_rate)(inputs)
+        x = layers.Conv1D(filters=filters2, kernel_size=kernel_size, activation='relu', padding='causal', dilation_rate=dilation_rate)(x)
+        x = layers.Flatten()(x)
+        outputs = layers.Dense(1)(x)
+        model = tf.keras.Model(inputs=inputs, outputs=outputs)
+        model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=0.001), loss='mean_absolute_error')
+        return model
+model = create_tcn_model((X_train.shape[1], X_train.shape[2]), filters1=128, filters2=64)
+model.summary()
+
+train_losses, val_losses = [], []
+for epoch in range(100):
+    with tf.device('/GPU:0'):
+        history = model.fit(X_train, y_train, validation_data=(X_val, y_val), batch_size=16, verbose=0, epochs=1)
+        train_loss = history.history['loss'][0]
+        val_loss = history.history['val_loss'][0]
+        train_losses.append(train_loss)
+        val_losses.append(val_loss)
+        print(f"Epoch {epoch + 1} - Train Loss: {train_loss:.4f}, Val Loss: {val_loss:.4f}")
+
+print(f"\nFinal Train Loss: {train_losses[-1]:.4f}")
+print(f"Final Val Loss: {val_losses[-1]:.4f}")
+
+y_pred = model.predict(X_val)
+
+plt.figure(figsize=(10, 6))
+plt.plot(train_losses, label='Train Loss')
+plt.plot(val_losses, label='Validation Loss')
+plt.xlabel('Epochs')
+plt.ylabel('Loss')
+plt.title('Training and Validation Loss')
+plt.legend()
+plt.grid()
+plt.show()
+model.save('/content/drive/My Drive/TCN/TCN_final_model.h5')
+

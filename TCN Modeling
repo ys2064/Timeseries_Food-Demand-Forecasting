@@ -23,6 +23,7 @@ print(f'Test set shape: {test_set.shape}')
 
 
 
+
 ## Training the TCN Model##
 
 !pip install tensorflow
@@ -136,4 +137,62 @@ plt.legend()
 plt.grid()
 plt.show()
 model.save('/content/drive/My Drive/TCN/TCN_final_model.h5')
+
+
+
+
+
+
+
+
+## Testing on Validation and Testset ##
+
+
+model=tf.keras.models.load_model('/content/drive/My Drive/TCN/TCN_final_model.h5')
+val_set=pd.read_csv('/content/drive/My Drive/TCN/val_set.csv')
+features=['week','center_id','meal_id','base_price','emailer_for_promotion','homepage_featured','city_code','region_code','op_area','interaction_feature','rolling_mean_orders','rolling_std_orders','category_Biryani','category_Desert','category_Extras','category_Fish','category_Other Snacks','category_Pasta','category_Pizza','category_Rice Bowl','category_Salad','category_Sandwich','category_Seafood','category_Soup','category_Starters','cuisine_Indian','cuisine_Italian','cuisine_Thai','center_type_TYPE_B','center_type_TYPE_C']
+lag_features=['num_orders_lag_1','num_orders_lag_2','num_orders_lag_3']
+all_features=features+lag_features
+target='num_orders_winsorized'
+scaler=MinMaxScaler()
+val_set[all_features]=scaler.fit_transform(val_set[all_features])
+def create_sequences(data,target_col,seq_length):
+    sequences=[]
+    for i in range(len(data)-seq_length):
+        seq=data.iloc[i:i+seq_length][all_features].values
+        sequences.append(seq)
+    return np.array(sequences)
+seq_length=3
+X_val=create_sequences(val_set,target,seq_length)
+y_pred=model.predict(X_val)
+val_set=val_set.iloc[seq_length:]
+val_set['predicted_orders']=y_pred.flatten()
+weekly_predictions=val_set.groupby('week')['predicted_orders'].sum().reset_index()
+print(weekly_predictions)
+
+
+
+
+
+model=tf.keras.models.load_model('/content/drive/My Drive/TCN/TCN_final_model.h5')
+val_set=pd.read_csv('/content/drive/My Drive/TCN/test_set.csv')
+features=['week','center_id','meal_id','base_price','emailer_for_promotion','homepage_featured','city_code','region_code','op_area','interaction_feature','rolling_mean_orders','rolling_std_orders','category_Biryani','category_Desert','category_Extras','category_Fish','category_Other Snacks','category_Pasta','category_Pizza','category_Rice Bowl','category_Salad','category_Sandwich','category_Seafood','category_Soup','category_Starters','cuisine_Indian','cuisine_Italian','cuisine_Thai','center_type_TYPE_B','center_type_TYPE_C']
+lag_features=['num_orders_lag_1','num_orders_lag_2','num_orders_lag_3']
+all_features=features+lag_features
+target='num_orders_winsorized'
+scaler=MinMaxScaler()
+val_set[all_features]=scaler.fit_transform(val_set[all_features])
+def create_sequences(data,target_col,seq_length):
+    sequences=[]
+    for i in range(len(data)-seq_length):
+        seq=data.iloc[i:i+seq_length][all_features].values
+        sequences.append(seq)
+    return np.array(sequences)
+seq_length=3
+X_val=create_sequences(val_set,target,seq_length)
+y_pred=model.predict(X_val)
+val_set=val_set.iloc[seq_length:]
+val_set['predicted_orders']=y_pred.flatten()
+weekly_predictions=val_set.groupby('week')['predicted_orders'].sum().reset_index()
+print(weekly_predictions)
 
